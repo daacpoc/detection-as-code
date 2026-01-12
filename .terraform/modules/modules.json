@@ -1,1 +1,0 @@
-{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"tf-logs-monitor","Source":"./detections/tf-logs-monitor","Dir":"detections/tf-logs-monitor"},{"Key":"tf-winevent-new-useradded","Source":"./detections/tf-winevent-new-useradded","Dir":"detections/tf-winevent-new-useradded"}]}
