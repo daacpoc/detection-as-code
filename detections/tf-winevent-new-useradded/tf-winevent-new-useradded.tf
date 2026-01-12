@@ -24,7 +24,7 @@ variable "SUMOLOGIC_ACCESS_KEY" {
 provider "sumologic" {
   access_id   = var.SUMOLOGIC_ACCESS_ID
   access_key  = var.SUMOLOGIC_ACCESS_KEY
-  environment = "us2"
+  environment = "us1"
 }
 
 #### USE CASE STARTS HERE ####
