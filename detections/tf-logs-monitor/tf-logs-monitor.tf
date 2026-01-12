@@ -23,7 +23,7 @@ variable "SUMOLOGIC_ACCESS_KEY" {
 provider "sumologic" {
   access_id   = var.SUMOLOGIC_ACCESS_ID
   access_key  = var.SUMOLOGIC_ACCESS_KEY
-  environment = "us2"
+  environment = "us1"
 }
 
 resource "sumologic_monitor" "tf_logs_monitor_1" {
@@ -64,7 +64,7 @@ resource "sumologic_monitor" "tf_logs_monitor_1" {
     notification {
       connection_type = "Email"
       recipients = [
-        "REPLACE@xtecsystems.com",
+        "REPLACE@whatever.com",
       ]
       subject      = "Monitor Alert: {{TriggerType}} on {{Name}}"
       time_zone    = "CST"
