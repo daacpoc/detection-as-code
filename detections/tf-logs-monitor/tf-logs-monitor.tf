@@ -64,7 +64,7 @@ resource "sumologic_monitor" "tf_logs_monitor_1" {
     notification {
       connection_type = "Email"
       recipients = [
-        "REPLACE@whatever.com",
+        "whatever@whatever.com",
       ]
       subject      = "Monitor Alert: {{TriggerType}} on {{Name}}"
       time_zone    = "CST"
