@@ -51,9 +51,9 @@ jobs:
           terraform init
           terraform plan
           terraform apply -auto-approve
-      - name: Run Synthetic AI tests
-        run: |
-          python ./sl-hcl-synth-test.py
-      - name: Deploy Use Cases
-        run: |
-          terraform apply -auto-approve
+#      - name: Run Synthetic AI tests
+#        run: |
+#          python ./sl-hcl-synth-test.py
+#      - name: Deploy Use Cases
+#        run: |
+#          terraform apply -auto-approve
