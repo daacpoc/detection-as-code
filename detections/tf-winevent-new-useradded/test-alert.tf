@@ -29,8 +29,8 @@ provider "sumologic" {
 
 #### USE CASE STARTS HERE ####
 
-resource "sumologic_monitor" "tf-winevent-new-useradded" {
-  name                      = "tf-winevent-new-useradded"
+resource "sumologic_monitor" "tf-test-alert" {
+  name                      = "tf-test-alert"
   description               = "New local user added to a Windows host."
   type                      = "MonitorsLibraryMonitor"
   is_disabled               = false
