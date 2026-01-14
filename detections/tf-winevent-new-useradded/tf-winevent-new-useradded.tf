@@ -72,7 +72,7 @@ resource "sumologic_monitor" "tf-winevent-new-useradded" {
     notification {
       connection_type = "Email"
       recipients = [
-        "whatever@whatever.com",
+        "brian@whatever.com",
       ]
       subject      = "Monitor Alert: {{TriggerType}} on {{Name}}"
       time_zone    = "CST"
