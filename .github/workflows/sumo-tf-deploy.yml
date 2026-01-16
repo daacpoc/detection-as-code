@@ -6,6 +6,8 @@ on:
     branches: [ "main" ]
     paths:
       - tests/*.log
+      - tests/smoke-tests.yml
+      - rules/sigma/**/*.yml
       - detections/**/*.tf
       - buildspec.json
   pull_request:
@@ -19,41 +21,105 @@ env:
   POE_API: ${{ secrets.POE_API }}
   TF_VAR_SUMOLOGIC_ACCESS_ID : ${{ secrets.TF_VAR_SUMOLOGIC_ACCESS_ID }}
   TF_VAR_SUMOLOGIC_ACCESS_KEY : ${{ secrets.TF_VAR_SUMOLOGIC_ACCESS_KEY }}
+  # Sumo API base URL (include /api). Example: https://api.us1.sumologic.com/api
+  SUMO_API_BASE_URL: ${{ secrets.SUMO_API_BASE_URL }}
+  # HTTP source URL used for CI smoke tests (the unique URL for your Hosted Collector HTTP Source)
+  SUMO_HTTP_SOURCE_URL: ${{ secrets.SUMO_HTTP_SOURCE_URL }}
+  # Local sigconverter URL (CI starts a local container and exposes this on localhost)
+  SIGCONVERTER_URL: http://localhost:8000/api/v1/convert
+  # Poe (OpenAI-compatible) settings
+  POE_API_KEY: ${{ secrets.POE_API_KEY }}
+  POE_MODEL: Claude-Opus-4.5
 permissions:
       contents: read    # This is required for actions/checkout
 
 jobs:
-  SumoLogicMonitorDeploy:
-    # The type of runner that the job will run on
-    runs-on: Ubuntu-latest
-    environment: production
-    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+  terraform_checks:
+    name: Terraform fmt/validate/plan
+    runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3      
-      #deploy python and cache requirements
-      - name: Setup Python Packages
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip'
+
       - name: Install python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Install Terraform and Lint
+
+      - name: Terraform fmt/init/validate/plan
         run: |
           terraform fmt -check -recursive
           terraform init
+          terraform validate
           terraform plan
+
+      # --- Build artifacts: Sigma -> Sumo query conversion (local sigconverter) ---
+      - name: Build and start local sigconverter
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/sigconverter.io
+          git clone --depth 1 https://github.com/magicsword-io/sigconverter.io /tmp/sigconverter.io
+          docker build -t sigconverter.io /tmp/sigconverter.io
+          docker run -d --rm --name sigconverter -p 8000:8000 sigconverter.io
+          # Give the container a moment to start
+          for i in {1..30}; do
+            curl -fsS http://localhost:8000/ >/dev/null 2>&1 && break || true
+            sleep 1
+          done
+
+      - name: Convert Sigma rules to Sumo queries (artifact)
+        run: |
+          mkdir -p build/sumo_queries
+          python tools/convert_sigma_to_sumo.py --sigma-dir rules/sigma --out-dir build/sumo_queries
+
+      - name: Upload Sigma conversion artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sumo-queries
+          path: build/sumo_queries
+
+      # --- Smoke tests: ingest test logs + query via Sumo Search Job API ---
+      - name: Sumo smoke tests (ingest + query)
+        if: ${{ env.SUMO_HTTP_SOURCE_URL != '' && env.SUMO_API_BASE_URL != '' }}
+        run: |
+          mkdir -p artifacts
+          python tools/sumo_smoke_test.py \
+            --sumo-api-base-url "$SUMO_API_BASE_URL" \
+            --sumo-access-id "$TF_VAR_SUMOLOGIC_ACCESS_ID" \
+            --sumo-access-key "$TF_VAR_SUMOLOGIC_ACCESS_KEY" \
+            --http-source-url "$SUMO_HTTP_SOURCE_URL" \
+            --smoke-config tests/smoke-tests.yml \
+            --out artifacts/sumo-smoke-results.json
+
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sumo-smoke-results
+          path: artifacts/sumo-smoke-results.json
+
+  terraform_apply:
+    name: Terraform apply (main only)
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [terraform_checks]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform apply
+        run: |
+          terraform init
           terraform apply -auto-approve
-#      - name: Run Synthetic AI tests
-#        run: |
-#          python ./sl-hcl-synth-test.py
-#      - name: Deploy Use Cases
-#        run: |
-#          terraform apply -auto-approve

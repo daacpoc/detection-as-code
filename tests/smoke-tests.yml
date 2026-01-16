@@ -1,0 +1,18 @@
+# Smoke tests used by tools/sumo_smoke_test.py
+#
+# IMPORTANT:
+# - You must create a Hosted Collector HTTP Logs & Metrics Source in Sumo and store the unique URL
+#   as the GitHub Actions secret SUMO_HTTP_SOURCE_URL.
+# - Also set SUMO_API_BASE_URL to your deployment API base (include /api), e.g.
+#   https://api.us1.sumologic.com/api
+
+source_category: "ci/detections"
+post_ingest_sleep_seconds: 20
+default_time_window_minutes: 15
+
+tests:
+  - name: "Windows security event snippet ingests & is searchable"
+    log_file: "tests/winevent-4720-log-snip.log"
+    # Keep this query aligned with the test log snippet.
+    query: "_sourceCategory=ci/detections \"LogName=Security\" \"EventCode=4738\""
+    min_results: 1
