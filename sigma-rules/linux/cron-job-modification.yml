@@ -1,0 +1,70 @@
+title: Suspicious Cron Job Modification on Linux
+id: 7f3e9a2b-5c8d-4e1f-9b3a-6d4c8e2f1a5b
+status: experimental
+description: |
+  Detects modifications to cron job files and directories that could indicate
+  persistence mechanism establishment by an attacker. Monitors changes to user
+  crontabs, system cron directories (/etc/cron.d/, /etc/cron.daily/, etc.),
+  and the system crontab file. Attackers commonly use cron jobs to maintain
+  persistence and execute malicious commands at scheduled intervals.
+references:
+    - https://attack.mitre.org/techniques/T1053/003/
+    - https://www.kernel.org/doc/html/latest/admin-guide/cron.html
+author: Detection-as-Code Pipeline
+date: 2025-01-21
+tags:
+    - attack.persistence
+    - attack.privilege_escalation
+    - attack.t1053.003
+logsource:
+    product: linux
+    category: file_event
+detection:
+    selection_crontab_edit:
+        Image|endswith: '/crontab'
+        CommandLine|contains: '-e'
+    selection_file_create:
+        Image|endswith:
+            - '/vi'
+            - '/vim'
+            - '/nano'
+            - '/cat'
+            - '/echo'
+            - '/tee'
+        TargetFilename|contains:
+            - '/etc/cron.d/'
+            - '/etc/cron.daily/'
+            - '/etc/cron.hourly/'
+            - '/etc/cron.monthly/'
+            - '/etc/cron.weekly/'
+            - '/etc/crontab'
+            - '/var/spool/cron/'
+    selection_direct_write:
+        TargetFilename|contains:
+            - '/etc/cron.d/'
+            - '/etc/cron.daily/'
+            - '/etc/cron.hourly/'
+            - '/etc/cron.monthly/'
+            - '/etc/cron.weekly/'
+            - '/etc/crontab'
+            - '/var/spool/cron/crontabs/'
+        EventType:
+            - 'creation'
+            - 'modification'
+    filter_legitimate:
+        User:
+            - 'root'
+            - 'cron'
+        Image|endswith:
+            - '/dpkg'
+            - '/apt'
+            - '/yum'
+            - '/rpm'
+    condition: (selection_crontab_edit or selection_file_create or selection_direct_write) and not filter_legitimate
+falsepositives:
+    - Legitimate system administrators scheduling maintenance tasks
+    - Automated configuration management tools (Ansible, Puppet, Chef)
+    - Software package installations and updates
+    - System backup scripts
+    - Monitoring agent installations
+level: high
