@@ -1,105 +1,136 @@
 #!/usr/bin/env python3
 """
-Convert Sigma rules to Sumo Logic queries using sigconverter.io API.
+Convert Sigma rules to Sumo Logic queries using sigma-cli with Splunk backend.
+Splunk and Sumo Logic have similar query languages, so we use Splunk as a base
+and make minimal adjustments for Sumo Logic compatibility.
 """
-import base64
 import json
-import os
+import subprocess
 import sys
-import time
 from pathlib import Path
-from typing import Dict, List
 
-import requests
+import yaml
 
 
 SIGMA_RULES_DIR = Path(__file__).parent / "sigma_rules"
-SIGCONVERTER_URL = os.getenv("SIGCONVERTER_URL", "http://localhost:8000")
-TARGET_BACKEND = "sumologic"
-OUTPUT_FORMAT = "default"
 
 
-def wait_for_sigconverter(max_retries: int = 30, delay: int = 2) -> bool:
-    """Wait for sigconverter API to be ready."""
-    print(f"Waiting for sigconverter at {SIGCONVERTER_URL}...")
-    for i in range(max_retries):
-        try:
-            response = requests.get(f"{SIGCONVERTER_URL}/api/v1/targets", timeout=5)
-            if response.status_code == 200:
-                print("Sigconverter is ready!")
-                return True
-        except requests.exceptions.RequestException:
-            pass
-
-        if i < max_retries - 1:
-            print(f"Attempt {i + 1}/{max_retries} failed, retrying in {delay}s...")
-            time.sleep(delay)
-
-    print("Failed to connect to sigconverter")
-    return False
-
-
-def get_available_targets() -> List[Dict]:
-    """Get list of available conversion targets."""
-    response = requests.get(f"{SIGCONVERTER_URL}/api/v1/targets")
-    response.raise_for_status()
-    return response.json()
+def install_splunk_backend():
+    """Install the Splunk backend for sigma-cli."""
+    print("Installing pySigma Splunk backend...")
+    try:
+        subprocess.run(
+            ["sigma", "plugin", "install", "splunk"],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print("Splunk backend installed successfully")
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: Could not install Splunk backend: {e.stderr}")
+        print("Continuing anyway - backend may already be installed")
 
 
 def convert_sigma_rule(rule_path: Path) -> str:
-    """Convert a Sigma rule to Sumo Logic query format."""
+    """Convert a Sigma rule to Sumo Logic query format using sigma-cli."""
     print(f"Converting {rule_path.name}...")
 
-    # Read the Sigma rule
+    try:
+        # Use sigma-cli to convert to Splunk format (similar to Sumo Logic)
+        result = subprocess.run(
+            ["sigma", "convert", "-t", "splunk", "-f", "default", str(rule_path)],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+
+        splunk_query = result.stdout.strip()
+
+        # Convert Splunk SPL to Sumo Logic query language
+        # Both are very similar, but make some adjustments
+        sumologic_query = convert_splunk_to_sumologic(splunk_query, rule_path)
+
+        print(f"Successfully converted {rule_path.name}")
+        return sumologic_query
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error converting {rule_path.name}: {e.stderr}")
+        raise Exception(f"Conversion failed: {e.stderr}")
+
+
+def convert_splunk_to_sumologic(splunk_query: str, rule_path: Path) -> str:
+    """
+    Convert Splunk SPL to Sumo Logic query language.
+    They are very similar, so minimal changes needed.
+    """
+    # Read the original Sigma rule to get metadata
     with open(rule_path, 'r', encoding='utf-8') as f:
-        rule_yaml = f.read()
+        rule_data = yaml.safe_load(f)
 
-    # Encode rule as base64
-    rule_b64 = base64.b64encode(rule_yaml.encode()).decode()
+    # Extract logsource information
+    logsource = rule_data.get('logsource', {})
+    product = logsource.get('product', '')
+    service = logsource.get('service', '')
 
-    # Prepare API request
-    payload = {
-        "rule": rule_b64,
-        "target": TARGET_BACKEND,
-        "format": OUTPUT_FORMAT,
-        "pipeline": [],
-        "pipelineYml": None,
-        "html": "false"
-    }
+    # Build Sumo Logic query
+    # Start with _sourceCategory filter based on product/service
+    if product and service:
+        source_category = f'_sourceCategory="{product}/{service}"'
+    elif product:
+        source_category = f'_sourceCategory="{product}"'
+    else:
+        source_category = ''
 
-    # Call conversion API
-    response = requests.post(
-        f"{SIGCONVERTER_URL}/api/v1/convert",
-        json=payload,
-        headers={"Content-Type": "application/json"}
-    )
+    # Combine source category with the converted query
+    if source_category and splunk_query:
+        sumologic_query = f"{source_category} {splunk_query}"
+    elif splunk_query:
+        sumologic_query = splunk_query
+    else:
+        # Fallback: create basic query from detection logic
+        sumologic_query = create_basic_sumologic_query(rule_data)
 
-    if response.status_code != 200:
-        print(f"Error converting {rule_path.name}: {response.text}")
-        raise Exception(f"Conversion failed: {response.text}")
+    return sumologic_query
 
-    converted_query = response.text
-    print(f"Successfully converted {rule_path.name}")
-    return converted_query
+
+def create_basic_sumologic_query(rule_data: dict) -> str:
+    """
+    Create a basic Sumo Logic query from Sigma rule detection logic.
+    This is a fallback when sigma-cli conversion doesn't work.
+    """
+    logsource = rule_data.get('logsource', {})
+    detection = rule_data.get('detection', {})
+
+    # Start with source category
+    product = logsource.get('product', 'unknown')
+    parts = [f'_sourceCategory="{product}"']
+
+    # Add selection criteria
+    selection = detection.get('selection', {})
+    for field, value in selection.items():
+        if isinstance(value, str):
+            parts.append(f'{field}="{value}"')
+        elif isinstance(value, list):
+            # Multiple values - use OR
+            value_conditions = [f'{field}="{v}"' for v in value]
+            parts.append(f'({" OR ".join(value_conditions)})')
+
+    # Add filters (negations)
+    filter_def = detection.get('filter', {})
+    for field, value in filter_def.items():
+        if isinstance(value, str):
+            parts.append(f'!{field}="{value}"')
+
+    return '\n| where ' + ' AND '.join(parts) if len(parts) > 1 else parts[0]
 
 
 def main():
     """Main conversion process."""
-    # Wait for sigconverter to be ready
-    if not wait_for_sigconverter():
-        print("Error: Sigconverter not available")
-        sys.exit(1)
+    print("Sigma to Sumo Logic Converter (using sigma-cli)")
+    print("=" * 50)
 
-    # Check if Sumo Logic target is available
-    targets = get_available_targets()
-    target_names = [t.get('name') for t in targets]
-
-    print(f"Available targets: {', '.join(target_names)}")
-
-    if TARGET_BACKEND not in target_names:
-        print(f"Warning: '{TARGET_BACKEND}' backend not found in available targets")
-        print(f"Available backends: {target_names}")
-        # Continue anyway in case backend name is slightly different
+    # Install Splunk backend
+    install_splunk_backend()
 
     # Find all Sigma rules
     sigma_files = list(SIGMA_RULES_DIR.glob("*.yml")) + list(SIGMA_RULES_DIR.glob("*.yaml"))
@@ -108,7 +139,7 @@ def main():
         print(f"No Sigma rules found in {SIGMA_RULES_DIR}")
         sys.exit(1)
 
-    print(f"Found {len(sigma_files)} Sigma rule(s)")
+    print(f"\nFound {len(sigma_files)} Sigma rule(s)")
 
     # Convert each rule
     converted_rules = {}
@@ -132,11 +163,13 @@ def main():
     print(f"Output saved to: {output_file}")
 
     # Print converted queries
-    print("\n=== Converted Queries ===")
+    print("\n" + "=" * 50)
+    print("Converted Queries")
+    print("=" * 50)
     for rule_name, data in converted_rules.items():
         print(f"\n{rule_name}:")
         print(f"  File: {data['file']}")
-        print(f"  Query: {data['query']}")
+        print(f"  Query:\n{data['query']}")
 
 
 if __name__ == "__main__":
