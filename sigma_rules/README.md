@@ -4,7 +4,7 @@ This directory contains detection rules written in [Sigma](https://github.com/Si
 
 ## Why Sigma?
 
-- **Portability**: Write rules once, deploy to multiple SIEM platforms (Sumo Logic, Splunk, Elastic, etc.)
+- **Portability**: Write rules once, deploy to multiple SIEM platforms (Splunk, Elastic, QRadar, etc.)
 - **Standard Format**: Industry-standard YAML-based rule format
 - **Version Control Friendly**: Text-based format works well with Git
 - **Community**: Large library of pre-built rules from the Sigma community
@@ -12,8 +12,8 @@ This directory contains detection rules written in [Sigma](https://github.com/Si
 ## How It Works
 
 1. **Write Rules**: Create detection rules in Sigma YAML format in this directory
-2. **CI/CD Conversion**: The GitHub Actions workflow automatically converts Sigma rules to Sumo Logic queries using [sigconverter.io](https://github.com/magicsword-io/sigconverter.io)
-3. **Terraform Deployment**: Converted queries are deployed to Sumo Logic via Terraform
+2. **CI/CD Conversion**: The GitHub Actions workflow automatically converts Sigma rules to Splunk SPL queries using sigma-cli
+3. **Terraform Deployment**: Converted queries are deployed to Splunk Cloud as saved searches via Terraform
 
 ## Rule Format
 
@@ -58,8 +58,8 @@ level: high|medium|low
 To test rule conversion locally:
 
 ```bash
-# Start sigconverter.io
-docker run -d -p 8000:8000 ghcr.io/magicsword-io/sigconverter:latest
+# Install dependencies
+pip install -r requirements.txt
 
 # Convert rules
 python convert_sigma_rules.py

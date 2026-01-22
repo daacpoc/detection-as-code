@@ -1,29 +1,37 @@
 terraform {
   required_providers {
-    # Sumo Logic Provider docs: https://registry.terraform.io/providers/SumoLogic/sumologic/latest/docs
-    sumologic = {
-      source  = "sumoLogic/sumologic"
-      version = "2.24.0"
+    # Splunk Provider docs: https://registry.terraform.io/providers/splunk/splunk/latest/docs
+    splunk = {
+      source  = "splunk/splunk"
+      version = "~> 2.0"
     }
   }
   # Required Terraform version.
   required_version = ">= 1.5.2"
 }
 
-# Setup authentication variables. Docs: https://registry.terraform.io/providers/SumoLogic/sumologic/latest/docs#authentication
-variable "SUMOLOGIC_ACCESS_ID" {
+# Setup authentication variables. Docs: https://registry.terraform.io/providers/splunk/splunk/latest/docs
+variable "SPLUNK_URL" {
   type        = string
-  description = "Sumo Logic Access ID"
+  description = "Splunk Cloud instance URL (e.g., https://your-instance.splunkcloud.com:8089)"
 }
-variable "SUMOLOGIC_ACCESS_KEY" {
+
+variable "SPLUNK_USERNAME" {
   type        = string
-  description = "Sumo Logic Access Key"
+  description = "Splunk admin username"
+  default     = "admin"
+}
+
+variable "SPLUNK_PASSWORD" {
+  type        = string
+  description = "Splunk admin password"
   sensitive   = true
 }
 
-# Configure the Sumo Logic Provider
-provider "sumologic" {
-  access_id   = var.SUMOLOGIC_ACCESS_ID
-  access_key  = var.SUMOLOGIC_ACCESS_KEY
-  environment = "us1"
+# Configure the Splunk Provider
+provider "splunk" {
+  url                  = var.SPLUNK_URL
+  username             = var.SPLUNK_USERNAME
+  password             = var.SPLUNK_PASSWORD
+  insecure_skip_verify = false
 }

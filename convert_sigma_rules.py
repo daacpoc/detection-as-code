@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-Convert Sigma rules to Sumo Logic queries using sigma-cli with Splunk backend.
-Splunk and Sumo Logic have similar query languages, so we use Splunk as a base
-and make minimal adjustments for Sumo Logic compatibility.
+Convert Sigma rules to Splunk SPL queries using sigma-cli.
 """
 import json
 import subprocess
@@ -32,11 +30,11 @@ def install_splunk_backend():
 
 
 def convert_sigma_rule(rule_path: Path) -> str:
-    """Convert a Sigma rule to Sumo Logic query format using sigma-cli."""
+    """Convert a Sigma rule to Splunk SPL query format using sigma-cli."""
     print(f"Converting {rule_path.name}...")
 
     try:
-        # Use sigma-cli to convert to Splunk format (similar to Sumo Logic)
+        # Use sigma-cli to convert to Splunk format
         result = subprocess.run(
             ["sigma", "convert", "-t", "splunk", "-f", "default", str(rule_path)],
             check=True,
@@ -46,64 +44,41 @@ def convert_sigma_rule(rule_path: Path) -> str:
 
         splunk_query = result.stdout.strip()
 
-        # Convert Splunk SPL to Sumo Logic query language
-        # Both are very similar, but make some adjustments
-        sumologic_query = convert_splunk_to_sumologic(splunk_query, rule_path)
+        if not splunk_query:
+            # Fallback: create basic query from detection logic
+            print(f"  Using fallback converter for {rule_path.name}")
+            splunk_query = create_basic_splunk_query(rule_path)
 
         print(f"Successfully converted {rule_path.name}")
-        return sumologic_query
+        return splunk_query
 
     except subprocess.CalledProcessError as e:
         print(f"Error converting {rule_path.name}: {e.stderr}")
-        raise Exception(f"Conversion failed: {e.stderr}")
+        print(f"  Using fallback converter")
+        return create_basic_splunk_query(rule_path)
 
 
-def convert_splunk_to_sumologic(splunk_query: str, rule_path: Path) -> str:
+def create_basic_splunk_query(rule_path: Path) -> str:
     """
-    Convert Splunk SPL to Sumo Logic query language.
-    They are very similar, so minimal changes needed.
+    Create a basic Splunk SPL query from Sigma rule detection logic.
+    This is a fallback when sigma-cli conversion doesn't work.
     """
-    # Read the original Sigma rule to get metadata
     with open(rule_path, 'r', encoding='utf-8') as f:
         rule_data = yaml.safe_load(f)
 
-    # Extract logsource information
-    logsource = rule_data.get('logsource', {})
-    product = logsource.get('product', '')
-    service = logsource.get('service', '')
-
-    # Build Sumo Logic query
-    # Start with _sourceCategory filter based on product/service
-    if product and service:
-        source_category = f'_sourceCategory="{product}/{service}"'
-    elif product:
-        source_category = f'_sourceCategory="{product}"'
-    else:
-        source_category = ''
-
-    # Combine source category with the converted query
-    if source_category and splunk_query:
-        sumologic_query = f"{source_category} {splunk_query}"
-    elif splunk_query:
-        sumologic_query = splunk_query
-    else:
-        # Fallback: create basic query from detection logic
-        sumologic_query = create_basic_sumologic_query(rule_data)
-
-    return sumologic_query
-
-
-def create_basic_sumologic_query(rule_data: dict) -> str:
-    """
-    Create a basic Sumo Logic query from Sigma rule detection logic.
-    This is a fallback when sigma-cli conversion doesn't work.
-    """
     logsource = rule_data.get('logsource', {})
     detection = rule_data.get('detection', {})
 
-    # Start with source category
-    product = logsource.get('product', 'unknown')
-    parts = [f'_sourceCategory="{product}"']
+    # Start with source/sourcetype based on product/service
+    product = logsource.get('product', '')
+    service = logsource.get('service', '')
+
+    parts = []
+
+    if product and service:
+        parts.append(f'source="{product}" sourcetype="{service}"')
+    elif product:
+        parts.append(f'sourcetype="{product}"')
 
     # Add selection criteria
     selection = detection.get('selection', {})
@@ -119,14 +94,18 @@ def create_basic_sumologic_query(rule_data: dict) -> str:
     filter_def = detection.get('filter', {})
     for field, value in filter_def.items():
         if isinstance(value, str):
-            parts.append(f'!{field}="{value}"')
+            parts.append(f'NOT {field}="{value}"')
 
-    return '\n| where ' + ' AND '.join(parts) if len(parts) > 1 else parts[0]
+    # Combine all parts
+    if parts:
+        return 'search ' + ' '.join(parts)
+    else:
+        return 'search *'
 
 
 def main():
     """Main conversion process."""
-    print("Sigma to Sumo Logic Converter (using sigma-cli)")
+    print("Sigma to Splunk SPL Converter (using sigma-cli)")
     print("=" * 50)
 
     # Install Splunk backend
@@ -169,7 +148,7 @@ def main():
     for rule_name, data in converted_rules.items():
         print(f"\n{rule_name}:")
         print(f"  File: {data['file']}")
-        print(f"  Query:\n{data['query']}")
+        print(f"  Query:\n    {data['query']}")
 
 
 if __name__ == "__main__":
