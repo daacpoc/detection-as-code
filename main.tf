@@ -43,21 +43,15 @@ provider "sumologic" {
 
 # Existing manual detections (will be migrated to Sigma format)
 module "tf-logs-monitor" {
-  source               = "./detections/tf-logs-monitor/"
-  SUMOLOGIC_ACCESS_ID  = var.SUMOLOGIC_ACCESS_ID
-  SUMOLOGIC_ACCESS_KEY = var.SUMOLOGIC_ACCESS_KEY
+  source = "./detections/tf-logs-monitor/"
 }
 
 module "tf-winevent-new-useradded" {
-  source               = "./detections/tf-winevent-new-useradded/"
-  SUMOLOGIC_ACCESS_ID  = var.SUMOLOGIC_ACCESS_ID
-  SUMOLOGIC_ACCESS_KEY = var.SUMOLOGIC_ACCESS_KEY
+  source = "./detections/tf-winevent-new-useradded/"
 }
 
 # Future Sigma-generated detections will be automatically added here by the pipeline
 # Example:
 # module "example_user_creation" {
-#   source               = "./detections/tf-example_user_creation/"
-#   SUMOLOGIC_ACCESS_ID  = var.SUMOLOGIC_ACCESS_ID
-#   SUMOLOGIC_ACCESS_KEY = var.SUMOLOGIC_ACCESS_KEY
+#   source = "./detections/tf-example_user_creation/"
 # }

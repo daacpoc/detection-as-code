@@ -220,37 +220,9 @@ class SigmaToSumoLogicConverter:
     def generate_terraform(self, monitor_config: Dict[str, Any], rule_id: str) -> str:
         """Generate Terraform configuration for Sumo Logic monitor."""
 
-        terraform_template = f'''#### Provider inherit details from root main.tf ####
-terraform {{
-  required_providers {{
-    sumologic = {{
-      source  = "SumoLogic/sumologic"
-      version = "2.31.5"
-    }}
-  }}
-}}
-
-# Setup authentication variables
-variable "SUMOLOGIC_ACCESS_ID" {{
-  type        = string
-  description = "Sumo Logic Access ID"
-  sensitive   = true
-}}
-
-variable "SUMOLOGIC_ACCESS_KEY" {{
-  type        = string
-  description = "Sumo Logic Access Key"
-  sensitive   = true
-}}
-
-# Configure the Sumo Logic Provider
-provider "sumologic" {{
-  access_id   = var.SUMOLOGIC_ACCESS_ID
-  access_key  = var.SUMOLOGIC_ACCESS_KEY
-  environment = "us1"
-}}
-
-#### USE CASE STARTS HERE ####
+        terraform_template = f'''# Sumo Logic Monitor Module
+# Provider configuration is inherited from root main.tf
+# This module only defines the monitor resource
 
 resource "sumologic_monitor" "{rule_id}" {{
   name                      = "{monitor_config['name']}"
