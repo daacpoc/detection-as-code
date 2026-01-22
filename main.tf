@@ -11,11 +11,11 @@ terraform {
 }
 
 # Setup authentication variables. Docs: https://registry.terraform.io/providers/SumoLogic/sumologic/latest/docs#authentication
-variable "SUMOLOGIC_ACCESSID" {
+variable "SUMOLOGIC_ACCESS_ID" {
   type        = string
   description = "Sumo Logic Access ID"
 }
-variable "SUMOLOGIC_ACCESSKEY" {
+variable "SUMOLOGIC_ACCESS_KEY" {
   type        = string
   description = "Sumo Logic Access Key"
   sensitive   = true
@@ -23,7 +23,7 @@ variable "SUMOLOGIC_ACCESSKEY" {
 
 # Configure the Sumo Logic Provider
 provider "sumologic" {
-  access_id   = var.SUMOLOGIC_ACCESSID
-  access_key  = var.SUMOLOGIC_ACCESSKEY
+  access_id   = var.SUMOLOGIC_ACCESS_ID
+  access_key  = var.SUMOLOGIC_ACCESS_KEY
   environment = "us1"
 }
