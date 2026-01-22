@@ -37,16 +37,23 @@ jobs:
   convert-sigma-rules:
     needs: validate-terraform-configuration
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    services:
-      sigconverter:
-        image: ghcr.io/magicsword-io/sigconverter:latest
-        ports:
-          - 8000:8000
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v3
+
+      - name: Clone sigconverter.io repository
+        run: |
+          git clone https://github.com/magicsword-io/sigconverter.io.git /tmp/sigconverter
+          cd /tmp/sigconverter
+
+      - name: Build and run sigconverter container
+        run: |
+          cd /tmp/sigconverter
+          docker build -t sigconverter:local .
+          docker run -d -p 8000:8000 --name sigconverter sigconverter:local
+          # Wait for container to be ready
+          sleep 10
 
       - name: Install Python
         uses: actions/setup-python@v4
@@ -61,7 +68,11 @@ jobs:
       - name: Convert Sigma Rules to Sumo Logic Queries
         run: python convert_sigma_rules.py
         env:
-          SIGCONVERTER_URL: http://sigconverter:8000
+          SIGCONVERTER_URL: http://localhost:8000
+
+      - name: Stop sigconverter container
+        if: always()
+        run: docker stop sigconverter && docker rm sigconverter
 
       - name: Upload Converted Rules
         uses: actions/upload-artifact@v4
