@@ -174,3 +174,6 @@ dmypy.json
 
 # Misc
 .DS_Store
+
+# Generated Sigma conversion output
+converted_rules.json

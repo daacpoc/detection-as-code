@@ -1,0 +1,24 @@
+title: Administrator Role Assigned to Non-Admin User Account
+id: 97d6c856-93e8-40e3-9af7-f797a5c1435b
+status: production
+description: Identifies when an administrator role is assigned to a non-admin Okta user account i.e. a standard user account that does not follow our company's admin account naming conventions. Investigate using playbook PB-100.
+references:
+    - https://developer.okta.com/docs/reference/api/system-log/
+author: Your Team
+date: 2023/07/22
+modified: 2023/07/22
+tags:
+    - attack.privilege_escalation
+    - attack.t1078
+logsource:
+    product: okta
+    service: okta
+detection:
+    selection:
+        eventType: user.account.privilege.grant
+    filter:
+        target.alternateId|startswith: 'admin.'
+    condition: selection and not filter
+falsepositives:
+    - Legitimate administrative role assignments
+level: high
