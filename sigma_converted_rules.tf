@@ -12,12 +12,12 @@ locals {
 module "rule_okta_administrator_role_assigned_to_non_admin_user_account_sigma" {
   count = local.okta_admin_role_rule_exists ? 1 : 0
 
-  source               = "./modules/sumo_monitor"
-  standard_name        = "Administrator Role Assigned to Non-Admin User Account (Sigma)"
-  standard_description = "Identifies when an administrator role is assigned to a non-admin Okta user account i.e. a standard user account that does not follow our company's admin account naming conventions. Investigate using playbook PB-100."
-  standard_query       = local.okta_admin_role_query
-  standard_folder      = sumologic_monitor_folder.detections.id
-  tines_webhook        = length(sumologic_connection.tines_webhook) > 0 ? sumologic_connection.tines_webhook[0].id : null
+  source                 = "./modules/sumo_monitor"
+  standard_name          = "Administrator Role Assigned to Non-Admin User Account (Sigma)"
+  standard_description   = "Identifies when an administrator role is assigned to a non-admin Okta user account i.e. a standard user account that does not follow our company's admin account naming conventions. Investigate using playbook PB-100."
+  standard_query         = local.okta_admin_role_query
+  standard_folder        = sumologic_monitor_folder.detections.id
+  tines_webhook          = length(sumologic_connection.tines_webhook) > 0 ? sumologic_connection.tines_webhook[0].id : null
   tines_webhook_override = <<EOF
 {
   "rule.name": "{{Name}}",
