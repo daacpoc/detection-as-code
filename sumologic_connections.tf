@@ -5,10 +5,12 @@ variable "TINES_WEBHOOK_URL_FOR_SUMOLOGIC_ALERTS" {
   type        = string
   description = "Tines webhook URL to send Sumo Logic alerts to."
   sensitive   = true
+  default     = ""
 }
 
 # Sumo Logic webhook connection to send alerts to Tines.
 resource "sumologic_connection" "tines_webhook" {
+  count          = var.TINES_WEBHOOK_URL_FOR_SUMOLOGIC_ALERTS != "" ? 1 : 0
   type           = "WebhookConnection"
   name           = "Tines Webhook - Create GitHub Issues from Sumo Logic Alerts."
   description    = "Connection to send alert payloads to Tines webhook."

@@ -43,12 +43,15 @@ resource "sumologic_monitor" "alert" {
       }
     }
   }
-  notifications {
-    notification {
-      connection_type  = "Webhook"
-      connection_id    = var.tines_webhook
-      payload_override = var.tines_webhook_override
+  dynamic "notifications" {
+    for_each = var.tines_webhook != null ? [1] : []
+    content {
+      notification {
+        connection_type  = "Webhook"
+        connection_id    = var.tines_webhook
+        payload_override = var.tines_webhook_override
+      }
+      run_for_trigger_types = [var.standard_trigger_type]
     }
-    run_for_trigger_types = [var.standard_trigger_type]
   }
 }

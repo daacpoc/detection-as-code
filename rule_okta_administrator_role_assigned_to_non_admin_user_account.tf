@@ -17,7 +17,7 @@ _sourceCategory="okta" user.account.privilege.grant
 | where eventType="user.account.privilege.grant" AND !(%"target[0].alternateId" matches /^admin\./)
 EOF
   standard_folder        = sumologic_monitor_folder.detections.id
-  tines_webhook          = sumologic_connection.tines_webhook.id
+  tines_webhook          = length(sumologic_connection.tines_webhook) > 0 ? sumologic_connection.tines_webhook[0].id : null
   tines_webhook_override = <<EOF
 {
   "rule.name": "{{Name}}",
