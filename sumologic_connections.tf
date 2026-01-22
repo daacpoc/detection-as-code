@@ -9,11 +9,11 @@ variable "TINES_WEBHOOK_URL_FOR_SUMOLOGIC_ALERTS" {
 
 # Sumo Logic webhook connection to send alerts to Tines.
 resource "sumologic_connection" "tines_webhook" {
-  type            = "WebhookConnection"
-  name            = "Tines Webhook - Create GitHub Issues from Sumo Logic Alerts."
-  description     = "Connection to send alert payloads to Tines webhook."
-  url             = var.TINES_WEBHOOK_URL_FOR_SUMOLOGIC_ALERTS
-  custom_headers  = { "Content-Type" : "application/json" }
+  type           = "WebhookConnection"
+  name           = "Tines Webhook - Create GitHub Issues from Sumo Logic Alerts."
+  description    = "Connection to send alert payloads to Tines webhook."
+  url            = var.TINES_WEBHOOK_URL_FOR_SUMOLOGIC_ALERTS
+  custom_headers = { "Content-Type" : "application/json" }
   # The default payload (JSON string) from Sumo Logic to send to Tines webhook.
   default_payload = <<JSON
 {
